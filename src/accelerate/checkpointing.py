@@ -37,6 +37,7 @@ from .utils import (
     is_musa_available,
     is_neuron_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_torch_version,
     is_torch_xla_available,
     is_xpu_available,
@@ -58,6 +59,19 @@ from .state import PartialState
 
 
 logger = get_logger(__name__)
+
+
+def _tpu_get_rng_state_all() -> list[torch.Tensor]:
+    # `torch.accelerator.random` is the sanctioned surface from PyTorch 2.13 on; older PyTorch versions supported by
+    # TorchTPU still expose the (experimental) per-device `torch.tpu` equivalent.
+    if hasattr(torch.accelerator, "random"):
+        return list(torch.accelerator.random.get_rng_state_all())
+    return [torch.tpu.get_rng_state(device=i) for i in range(torch.accelerator.device_count())]
+
+
+def _tpu_set_rng_state_all(rng_states: list[torch.Tensor]) -> None:
+    for device_index, rng_state in enumerate(rng_states):
+        torch.tpu.set_rng_state(rng_state, device=device_index)
 
 
 def save_accelerator_state(
@@ -170,6 +184,8 @@ def save_accelerator_state(
         states["torch_hpu_manual_seed"] = torch.hpu.get_rng_state_all()
     if is_neuron_available():
         states["torch_neuron_manual_seed"] = torch.neuron.get_rng_state_all()
+    if is_torch_tpu_available():
+        states["torch_tpu_manual_seed"] = _tpu_get_rng_state_all()
     if is_cuda_available():
         states["torch_cuda_manual_seed"] = torch.cuda.get_rng_state_all()
     if is_torch_xla_available():
@@ -309,6 +325,8 @@ def load_accelerator_state(
             torch.hpu.set_rng_state_all(states["torch_hpu_manual_seed"])
         if is_neuron_available():
             torch.neuron.set_rng_state_all(states["torch_neuron_manual_seed"])
+        if is_torch_tpu_available():
+            _tpu_set_rng_state_all(states["torch_tpu_manual_seed"])
         if is_cuda_available():
             torch.cuda.set_rng_state_all(states["torch_cuda_manual_seed"])
         if is_torch_xla_available():

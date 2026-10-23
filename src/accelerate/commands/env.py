@@ -34,6 +34,7 @@ from ..utils import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_xpu_available,
 )
 
@@ -62,6 +63,7 @@ def env_command(args):
     pt_musa_available = is_musa_available()
     pt_npu_available = is_npu_available()
     pt_neuron_available = is_neuron_available()
+    pt_tpu_available = is_torch_tpu_available()
     pt_mps_available = is_mps_available()
 
     accelerator = "N/A"
@@ -79,6 +81,8 @@ def env_command(args):
         accelerator = "NPU"
     elif pt_neuron_available:
         accelerator = "NEURON"
+    elif pt_tpu_available:
+        accelerator = "TPU"
     elif pt_mps_available:
         accelerator = "MPS"
 
@@ -110,6 +114,8 @@ def env_command(args):
         info["MUSA type"] = torch.musa.get_device_name()
     elif pt_neuron_available:
         info["NEURON type"] = torch.neuron.get_device_name()
+    elif pt_tpu_available:
+        info["TPU type"] = torch.tpu.get_device_properties().name
     elif pt_mps_available:
         try:
             mps_type = subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"], text=True).strip()

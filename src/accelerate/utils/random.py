@@ -28,6 +28,7 @@ from .imports import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_torch_xla_available,
     is_xpu_available,
 )
@@ -35,6 +36,18 @@ from .imports import (
 
 if is_torch_xla_available():
     import torch_xla.core.xla_model as xm
+
+
+def _tpu_get_rng_state() -> torch.Tensor:
+    # `torch.accelerator.random` is the sanctioned surface from PyTorch 2.13 on; older PyTorch versions supported by
+    # TorchTPU still expose the (experimental) `torch.tpu` equivalent.
+    if hasattr(torch.accelerator, "random"):
+        return torch.accelerator.random.get_rng_state()
+    return torch.tpu.get_rng_state()
+
+
+def _tpu_set_rng_state(rng_state: torch.Tensor) -> None:
+    torch.tpu.set_rng_state(rng_state)
 
 
 def set_seed(seed: int, device_specific: bool = False, deterministic: bool = False):
@@ -68,6 +81,8 @@ def set_seed(seed: int, device_specific: bool = False, deterministic: bool = Fal
         torch.hpu.manual_seed_all(seed)
     elif is_neuron_available():
         torch.neuron.manual_seed_all(seed)
+    elif is_torch_tpu_available():
+        torch.tpu.manual_seed_all(seed)
     else:
         torch.cuda.manual_seed_all(seed)
     # ^^ safe to call this function even if cuda is not available
@@ -108,6 +123,9 @@ def synchronize_rng_state(rng_type: Optional[RNGType] = None, generator: Optiona
     elif rng_type == RNGType.NEURON:
         assert is_neuron_available(), "Can't synchronize Neuron seeds on an environment without Neuron Cores."
         rng_state = torch.neuron.get_rng_state()
+    elif rng_type == RNGType.TPU:
+        assert is_torch_tpu_available(), "Can't synchronize TPU seeds on an environment without TPUs."
+        rng_state = _tpu_get_rng_state()
     elif rng_type == RNGType.GENERATOR:
         assert generator is not None, "Need a generator to synchronize its seed."
         rng_state = generator.get_state()
@@ -128,6 +146,7 @@ def synchronize_rng_state(rng_type: Optional[RNGType] = None, generator: Optiona
         or state.distributed_type == DistributedType.MULTI_XPU
         or state.distributed_type == DistributedType.MULTI_HPU
         or state.distributed_type == DistributedType.MULTI_NEURON
+        or state.distributed_type == DistributedType.MULTI_TPU
     ):
         rng_state = rng_state.to(state.device)
         torch.distributed.broadcast(rng_state, 0)
@@ -154,6 +173,8 @@ def synchronize_rng_state(rng_type: Optional[RNGType] = None, generator: Optiona
         torch.hpu.set_rng_state(rng_state)
     elif rng_type == RNGType.NEURON:
         torch.neuron.set_rng_state(rng_state)
+    elif rng_type == RNGType.TPU:
+        _tpu_set_rng_state(rng_state)
     elif rng_type == RNGType.XLA:
         xm.set_rng_state(rng_state.item())
     elif rng_type == RNGType.GENERATOR:

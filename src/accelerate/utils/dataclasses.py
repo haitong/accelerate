@@ -52,6 +52,7 @@ from .imports import (
     is_neuron_available,
     is_npu_available,
     is_rocm_available,
+    is_torch_tpu_available,
     is_torchao_available,
     is_transformer_engine_available,
     is_xpu_available,
@@ -615,6 +616,7 @@ class DistributedType(str, enum.Enum):
         - **MULTI_XPU** -- Distributed on multiple XPUs.
         - **MULTI_HPU** -- Distributed on multiple HPUs.
         - **MULTI_NEURON** -- Distributed on multiple Neuron cores.
+        - **MULTI_TPU** -- Distributed on multiple TPU devices through TorchTPU (`torch_tpu`).
         - **DEEPSPEED** -- Using DeepSpeed.
         - **FSDP** -- Using Fully Sharded Data Parallelism (FSDP).
         - **XLA** -- Using TorchXLA.
@@ -636,6 +638,7 @@ class DistributedType(str, enum.Enum):
     MEGATRON_LM = "MEGATRON_LM"
     MULTI_HPU = "MULTI_HPU"
     MULTI_NEURON = "MULTI_NEURON"
+    MULTI_TPU = "MULTI_TPU"
 
 
 class SageMakerDistributedType(str, enum.Enum):
@@ -720,6 +723,8 @@ class DynamoBackend(str, BaseEnum):
         - **TVM** -- Uses Apache TVM for inference optimizations. [Read more](https://tvm.apache.org/)
         - **HPU_BACKEND** -- Uses HPU backend for inference optimizations.
         - **NEURON** -- Uses AWS Neuron backend for Trainium/Inferentia.
+        - **TPU** -- Uses the TorchTPU backend (TorchDynamo → StableHLO → XLA) for Google Cloud TPUs. [Read
+          more](https://github.com/google-pytorch/torch_tpu)
 
     """
 
@@ -740,6 +745,7 @@ class DynamoBackend(str, BaseEnum):
     TVM = "TVM"
     HPU_BACKEND = "HPU_BACKEND"
     NEURON = "NEURON"
+    TPU = "TPU"
 
 
 class LoggerType(BaseEnum):
@@ -797,6 +803,7 @@ class RNGType(BaseEnum):
     XPU = "xpu"
     HPU = "hpu"
     NEURON = "neuron"
+    TPU = "tpu"
     GENERATOR = "generator"
 
 
@@ -2010,9 +2017,13 @@ class FullyShardedDataParallelPlugin:
                 device = torch.hpu.current_device()
             elif is_neuron_available():
                 device = torch.neuron.current_device()
+            elif is_torch_tpu_available():
+                # TorchTPU only exposes device management through `torch.accelerator`; pass a fully qualified
+                # device so `to_empty` doesn't interpret the index as a CUDA ordinal.
+                device = torch.device("tpu", torch.accelerator.current_device_index())
             else:
                 raise RuntimeError(
-                    "There are currently no available devices found, must be one of 'XPU', 'CUDA', 'MLU', 'NPU', 'MUSA', or 'HPU'."
+                    "There are currently no available devices found, must be one of 'XPU', 'CUDA', 'MLU', 'NPU', 'MUSA', 'HPU', 'NEURON' or 'TPU'."
                 )
             # Create a function that will be used to initialize the parameters of the model
             # when using `sync_module_states`

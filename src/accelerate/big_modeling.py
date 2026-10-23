@@ -45,6 +45,7 @@ from .utils import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_xpu_available,
     load_checkpoint_in_model,
     offload_state_dict,
@@ -486,6 +487,8 @@ def dispatch_model(
             model.xpu = add_warning(model.xpu, model)
         elif is_neuron_available():
             model.neuron = add_warning(model.neuron, model)
+        elif is_torch_tpu_available() and hasattr(model, "tpu"):
+            model.tpu = add_warning(model.tpu, model)
         else:
             model.cuda = add_warning(model.cuda, model)
 

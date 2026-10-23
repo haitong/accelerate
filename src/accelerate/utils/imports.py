@@ -165,6 +165,9 @@ def is_bf16_available(ignore_tpu=False):
     "Checks if bf16 is supported, optionally ignoring the TPU"
     if is_torch_xla_available(check_is_tpu=True):
         return not ignore_tpu
+    if is_torch_tpu_available():
+        # bf16 is the native compute dtype of all TPU generations supported by TorchTPU.
+        return True
     if is_cuda_available():
         return torch.cuda.is_bf16_supported()
     if is_mlu_available():
@@ -477,6 +480,43 @@ def is_neuron_available(check_device=False):
             return False
 
     return hasattr(torch, "neuron") and torch.neuron.is_available()
+
+
+@lru_cache
+def is_torch_tpu_available(check_device=False):
+    """
+    Checks if TorchTPU (`torch_tpu`, the native PyTorch backend for Google Cloud TPUs) is installed and, optionally,
+    whether a TPU is actually reachable from this process.
+
+    TorchTPU registers itself as the `tpu` accelerator through PyTorch's backend autoload mechanism. Its sanctioned
+    device-management surface is `torch.accelerator` (the `torch.tpu.*` device helpers such as `torch.tpu.device_count`
+    are internal and raise when called from outside PyTorch), so this helper and the rest of `accelerate` only rely on
+    `torch.accelerator` when talking to TPUs.
+    """
+    if importlib.util.find_spec("torch_tpu") is None:
+        return False
+
+    # `torch.accelerator` is required to talk to TorchTPU (and TorchTPU itself requires a recent PyTorch).
+    if not hasattr(torch, "accelerator"):
+        return False
+
+    try:
+        # No-op when the backend was autoloaded by `import torch`; registers it when autoload is disabled
+        # (`TORCH_DEVICE_BACKEND_AUTOLOAD=0`).
+        import torch_tpu  # noqa: F401
+    except ImportError:
+        return False
+
+    try:
+        accelerator = torch.accelerator.current_accelerator()
+        if accelerator is None or accelerator.type != "tpu":
+            return False
+        if check_device:
+            # Will raise a RuntimeError if the TPU runtime cannot be initialized on this host
+            return torch.accelerator.is_available() and torch.accelerator.device_count() > 0
+        return torch.accelerator.is_available()
+    except RuntimeError:
+        return False
 
 
 def is_dvclive_available():

@@ -129,6 +129,7 @@ from .imports import (
     is_swanlab_available,
     is_tensorboard_available,
     is_timm_available,
+    is_torch_tpu_available,
     is_torch_xla_available,
     is_torchao_available,
     is_torchdata_available,

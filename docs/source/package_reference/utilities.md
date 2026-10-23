@@ -152,6 +152,8 @@ These functionalities check the state of the current working environment includi
 
 [[autodoc]] utils.is_npu_available
 
+[[autodoc]] utils.is_torch_tpu_available
+
 [[autodoc]] utils.is_torch_version
 
 [[autodoc]] utils.is_torch_xla_available

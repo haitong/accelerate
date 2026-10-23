@@ -66,6 +66,7 @@ from ..utils import (
     is_swanlab_available,
     is_tensorboard_available,
     is_timm_available,
+    is_torch_tpu_available,
     is_torch_version,
     is_torch_xla_available,
     is_torchao_available,
@@ -106,6 +107,8 @@ def get_backend():
         return "hpu", torch.hpu.device_count(), torch.hpu.memory_allocated
     elif is_neuron_available():
         return "neuron", torch.neuron.device_count(), torch.neuron.memory_allocated
+    elif is_torch_tpu_available():
+        return "tpu", torch.accelerator.device_count(), torch.accelerator.memory_allocated
     else:
         return "cpu", 1, lambda: 0
 
@@ -303,6 +306,14 @@ def require_neuron(test_case):
     Decorator marking a test that requires Neuron. These tests are skipped when there are no Neuron Cores available.
     """
     return unittest.skipUnless(is_neuron_available(), "test require Neuron Cores")(test_case)
+
+
+def require_torch_tpu(test_case):
+    """
+    Decorator marking a test that requires a TPU driven by TorchTPU (`torch_tpu`). These tests are skipped when no TPU
+    is available. Not to be confused with `require_tpu`, which targets the (deprecated) PyTorch/XLA TPU path.
+    """
+    return unittest.skipUnless(is_torch_tpu_available(), "test requires a TPU (TorchTPU)")(test_case)
 
 
 def require_mps(test_case):

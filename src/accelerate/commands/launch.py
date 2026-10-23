@@ -47,6 +47,7 @@ from accelerate.utils import (
     is_rich_available,
     is_sagemaker_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_torch_xla_available,
     is_xpu_available,
     patch_environment,
@@ -1253,6 +1254,7 @@ def _validate_launch_command(args):
                     DistributedType.MULTI_XPU,
                     DistributedType.MULTI_HPU,
                     DistributedType.MULTI_NEURON,
+                    DistributedType.MULTI_TPU,
                 )
                 else False
             )
@@ -1335,6 +1337,8 @@ def _validate_launch_command(args):
                 args.num_processes = torch.hpu.device_count()
             elif is_neuron_available():
                 args.num_processes = torch.neuron.device_count()
+            elif is_torch_tpu_available():
+                args.num_processes = torch.accelerator.device_count()
             else:
                 args.num_processes = torch.cuda.device_count()
             warned.append(f"\t`--num_processes` was set to a value of `{args.num_processes}`")
@@ -1351,6 +1355,7 @@ def _validate_launch_command(args):
                 or (is_sdaa_available() and torch.sdaa.device_count() > 1)
                 or (is_musa_available() and torch.musa.device_count() > 1)
                 or (is_neuron_available() and torch.neuron.device_count() > 1)
+                or (is_torch_tpu_available() and torch.accelerator.device_count() > 1)
                 or (torch.cuda.is_available() and torch.cuda.device_count() > 1)
             )
         ):

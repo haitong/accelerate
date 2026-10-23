@@ -33,6 +33,7 @@ from .imports import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_xpu_available,
 )
 
@@ -65,6 +66,9 @@ def clear_device_cache(garbage_collection: bool = False) -> None:
     elif is_neuron_available():
         # Not sure it actually does something, but adding for consistency with other backends
         torch.neuron.empty_cache()
+    elif is_torch_tpu_available():
+        # TorchTPU routes allocator management through the generic accelerator API.
+        torch.accelerator.empty_cache()
 
 
 def release_memory(*objects) -> list:

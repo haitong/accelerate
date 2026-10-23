@@ -349,6 +349,7 @@ def main():
         DistributedType.MULTI_CPU,
         DistributedType.MULTI_HPU,
         DistributedType.MULTI_NEURON,
+        DistributedType.MULTI_TPU,
     ):
         if state.local_process_index == 0:
             print("**Test Distributed `no_sync` context manager**")
@@ -364,6 +365,7 @@ def main():
         DistributedType.MULTI_MUSA,
         DistributedType.MULTI_HPU,
         DistributedType.MULTI_NEURON,
+        DistributedType.MULTI_TPU,
     ):
         for split_batch in [True, False]:
             for dispatch_batches in [True, False]:
@@ -390,6 +392,7 @@ def main():
         DistributedType.MULTI_MUSA,
         DistributedType.MULTI_HPU,
         DistributedType.MULTI_NEURON,
+        DistributedType.MULTI_TPU,
     ):
         for split_batch in [True, False]:
             for dispatch_batches in [True, False]:

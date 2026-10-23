@@ -29,6 +29,7 @@ from ...utils import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_torchao_available,
     is_transformer_engine_available,
     is_transformers_available,
@@ -70,6 +71,7 @@ def get_cluster_input():
             "multi-SDAA",
             "multi-MUSA",
             "multi-NEURON",
+            "multi-TPU",
             "TPU",
         ],
         _convert_distributed_mode,
@@ -95,6 +97,7 @@ def get_cluster_input():
         DistributedType.MULTI_CPU,
         DistributedType.MULTI_HPU,
         DistributedType.MULTI_NEURON,
+        DistributedType.MULTI_TPU,
     ]:
         num_machines = _ask_field(
             "How many different machines will you use (use more than 1 for multi-node training)? [1]: ",
@@ -222,6 +225,7 @@ def get_cluster_input():
             DistributedType.MULTI_SDAA,
             DistributedType.MULTI_MUSA,
             DistributedType.MULTI_NEURON,
+            DistributedType.MULTI_TPU,
             DistributedType.NO,
         ]
         and not use_mps
@@ -235,6 +239,8 @@ def get_cluster_input():
         if use_deepspeed:
             if distributed_type is DistributedType.MULTI_NEURON:
                 raise RuntimeError("DeepSpeed is not supported on Neuron devices.")
+            if distributed_type is DistributedType.MULTI_TPU:
+                raise RuntimeError("DeepSpeed is not supported on TPU devices (TorchTPU); use FSDP instead.")
 
             distributed_type = DistributedType.DEEPSPEED
             assert is_deepspeed_available(), (
@@ -384,6 +390,7 @@ def get_cluster_input():
         DistributedType.MULTI_XPU,
         DistributedType.MULTI_HPU,
         DistributedType.MULTI_NEURON,
+        DistributedType.MULTI_TPU,
     ]:
         use_fsdp = _ask_field(
             "Do you want to use FullyShardedDataParallel? [yes/NO]: ",
@@ -636,10 +643,14 @@ def get_cluster_input():
         DistributedType.MULTI_MUSA,
         DistributedType.MULTI_NPU,
         DistributedType.MULTI_NEURON,
+        DistributedType.MULTI_TPU,
         DistributedType.XLA,
     ]:
         machine_type = str(distributed_type).split(".")[1].replace("MULTI_", "")
-        if machine_type in ["TPU", "NEURON"]:
+        if machine_type == "TPU":
+            # TorchTPU: one process per TPU device (TensorCore)
+            machine_type += " device(s)"
+        elif machine_type == "NEURON":
             machine_type += " cores"
         elif machine_type == "CPU":
             machine_type = "processes"
@@ -677,6 +688,7 @@ def get_cluster_input():
             DistributedType.MULTI_XPU,
             DistributedType.MULTI_HPU,
             DistributedType.MULTI_NEURON,
+            DistributedType.MULTI_TPU,
             DistributedType.NO,
         ]
         and not use_cpu
@@ -696,6 +708,8 @@ def get_cluster_input():
             machine_type = "HPU(s)"
         elif is_neuron_available():
             machine_type = "Neuron cores"
+        elif is_torch_tpu_available():
+            machine_type = "TPU device(s)"
         else:
             machine_type = "GPU(s)"
         gpu_ids = _ask_field(

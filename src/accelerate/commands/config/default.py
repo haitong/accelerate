@@ -25,6 +25,7 @@ from ...utils import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_xpu_available,
 )
 from .config_args import ClusterConfig, default_json_config_file
@@ -125,6 +126,14 @@ def write_basic_config(mixed_precision="no", save_location: str = default_json_c
         config["use_cpu"] = False
         if num_neuron_cores > 1:
             config["distributed_type"] = "MULTI_NEURON"
+        else:
+            config["distributed_type"] = "NO"
+    elif is_torch_tpu_available():
+        num_tpu_devices = torch.accelerator.device_count()
+        config["num_processes"] = num_tpu_devices
+        config["use_cpu"] = False
+        if num_tpu_devices > 1:
+            config["distributed_type"] = "MULTI_TPU"
         else:
             config["distributed_type"] = "NO"
     else:

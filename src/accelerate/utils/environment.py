@@ -127,6 +127,7 @@ def get_current_device_type() -> tuple[str, str]:
         is_neuron_available,
         is_npu_available,
         is_sdaa_available,
+        is_torch_tpu_available,
         is_xpu_available,
     )
 
@@ -144,6 +145,8 @@ def get_current_device_type() -> tuple[str, str]:
         return "xpu", "MULTI_XPU"
     elif is_neuron_available():
         return "neuron", "MULTI_NEURON"
+    elif is_torch_tpu_available():
+        return "tpu", "MULTI_TPU"
     else:
         return "cuda", "MULTI_GPU"
 

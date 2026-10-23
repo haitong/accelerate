@@ -45,6 +45,7 @@ from .utils import (
     is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torch_tpu_available,
     is_torch_xla_available,
     is_xccl_available,
     is_xpu_available,
@@ -405,6 +406,7 @@ class PartialState:
             DistributedType.MULTI_XPU,
             DistributedType.MULTI_HPU,
             DistributedType.MULTI_NEURON,
+            DistributedType.MULTI_TPU,
             DistributedType.DEEPSPEED,
             DistributedType.FSDP,
         ):
@@ -733,6 +735,7 @@ class PartialState:
         - NPU if `is_npu_available()`
         - HPU if `is_hpu_available()`
         - NEURON if `is_neuron_available()`
+        - TPU if `is_torch_tpu_available()`
         - CPU otherwise
         """
         if is_mps_available():
@@ -756,6 +759,8 @@ class PartialState:
             return torch.device("xpu")
         elif is_neuron_available():
             return torch.device("neuron")
+        elif is_torch_tpu_available():
+            return torch.device("tpu")
         else:
             return torch.device("cpu")
 
@@ -803,6 +808,11 @@ class PartialState:
             elif is_neuron_available():
                 backend = "neuron"
                 distributed_type = DistributedType.MULTI_NEURON
+            elif is_torch_tpu_available():
+                # `tpu_dist` is the c10d backend registered by TorchTPU (collectives are lowered to XLA, so there is
+                # no NCCL-like library to pick). It is also what `init_process_group()` defaults to on TPU hosts.
+                backend = "tpu_dist"
+                distributed_type = DistributedType.MULTI_TPU
 
         if (
             distributed_type is None
@@ -833,7 +843,7 @@ class PartialState:
             self.device = torch.device("cpu") if self._cpu else self.default_device
             return
         device = str(self.distributed_type).split(".")[-1].replace("MULTI_", "").lower()
-        if device not in ("cpu", "gpu", "mlu", "musa", "npu", "xpu", "xla", "hpu", "sdaa", "neuron"):
+        if device not in ("cpu", "gpu", "mlu", "musa", "npu", "xpu", "xla", "hpu", "sdaa", "neuron", "tpu"):
             raise ValueError(
                 f"Can't set device for {self.distributed_type} ({device}), verify we should be calling `_set_device()` for it!"
             )
@@ -843,6 +853,11 @@ class PartialState:
             self.device = torch.device("hpu", torch.hpu.current_device())
         elif device == "neuron":
             self.device = torch.device("neuron", torch.neuron.current_device())
+        elif device == "tpu":
+            # TorchTPU's `torch.tpu.device_count`/`set_device` are internal; use the generic accelerator API instead.
+            device_index = self.local_process_index % torch.accelerator.device_count()
+            self.device = torch.device("tpu", device_index)
+            torch.accelerator.set_device_index(self.device)
         else:
             if device == "gpu":
                 device = "cuda"
@@ -999,6 +1014,7 @@ class AcceleratorState:
                 DistributedType.MULTI_XPU,
                 DistributedType.MULTI_HPU,
                 DistributedType.MULTI_NEURON,
+                DistributedType.MULTI_TPU,
             ]:
                 # TODO: Siro - remove when axolotl fixes their side
                 if not os.environ.get("ACCELERATE_ALLOW_CP_STANDALONE", "false").lower() == "true":

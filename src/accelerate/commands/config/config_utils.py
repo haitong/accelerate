@@ -82,6 +82,7 @@ def _convert_distributed_mode(value):
             "MULTI_SDAA",
             "MULTI_MUSA",
             "MULTI_NEURON",
+            "MULTI_TPU",
             "XLA",
         ][value]
     )
